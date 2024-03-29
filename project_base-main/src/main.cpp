@@ -161,7 +161,7 @@ int main() {
 
     // build and compile shaders
     // -------------------------
-    Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
+    Shader ourShader("resources/shaders/model_lighting.vs", "resources/shaders/model_lighting.fs");
 
     // load models
     // -----------
@@ -172,7 +172,7 @@ int main() {
     pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
     pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
     pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
-    pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
+    pointLight.specular = glm::vec3(4.0, 4.0, 4.0);
 
     pointLight.constant = 1.0f;
     pointLight.linear = 0.09f;
