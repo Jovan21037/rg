@@ -1,12 +1,8 @@
-# project_base
-Prazan projekat sa pratećim bibliotekama koje koristimo na času. 
-
 # Uputstvo
-1. `git clone https://github.com/matf-racunarska-grafika/project_base.git`
-2. CLion -> Open -> path/to/my/project_base
-3. Main se nalazi u src/main.cpp
-4. Cpp fajlovi idu u src folder
-5. Zaglavlja (h i hpp) fajlovi idu u include
-6. Šejderi idu u folder shaders. `Vertex shader` ima ekstenziju `.vs`, `fragment shader` ima ekstenziju `.fs`
-7. ALT+SHIFT+F10 -> project_base -> run
-hgf
+1. Kretanje na sceni je standardno (w-napred, a-levo, s-nazad, d-desno)
+2. Misem se moze usmeravati pogled kamere u svim pravcima
+3. Klikom na dugme B ukljucuje se Blinn-Phong efekat naprednog osvetljenja, a ponovnim klikom istog dugmeta se vraca na podrazumevan Phong efekat
+4. Program se pokre'e na SHIFT+F10
+5. U projektu postoji gradivo od 1-7 nedelje kome je prododat Blending, Face culling i Advanced lighting
+6. Projekat ima i ucitan model
+7. Takodje ima i jednu oblast iz grupe A (Cubemaps)

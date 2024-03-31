@@ -30,9 +30,13 @@ unsigned int loadTexture(char const * path);
 
 unsigned int loadCubemap(vector<std::string> faces);
 
+
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
+
+bool blinn = false;
+bool blinnKeyPressed = false;
 
 // camera
 
@@ -60,8 +64,8 @@ struct ProgramState {
     bool ImGuiEnabled = false;
     Camera camera;
     bool CameraMouseMovementUpdateEnabled = true;
-    glm::vec3 backpackPosition = glm::vec3(0.0f);
-    float backpackScale = 1.0f;
+    glm::vec3 treePosition = glm::vec3(0.0f);
+    float treeScale = 1.0f;
     PointLight pointLight;
     ProgramState()
             : camera(glm::vec3(0.0f, 0.0f, 3.0f)) {}
@@ -163,6 +167,7 @@ int main() {
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
 
+    // TODO 01: Enable face culling. Play with different options
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
 
@@ -171,10 +176,10 @@ int main() {
     Shader shader("resources/shaders/model_lighting.vs", "resources/shaders/model_lighting.fs");
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
     Shader blendingShader("resources/shaders/blending.vs","resources/shaders/blending.fs");
+    Shader advancedShader("resources/shaders/advanced_lighting.vs","resources/shaders/advanced_lighting.fs");
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
-
 
     float cubeVertices[] = {
             // back face
@@ -288,6 +293,7 @@ int main() {
             1.0f, -1.0f,  1.0f
     };
 
+
     // cube VAO
     unsigned int cubeVAO, cubeVBO;
     glGenVertexArrays(1, &cubeVAO);
@@ -323,7 +329,6 @@ int main() {
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glBindVertexArray(0);
-
     // skybox VAO
     unsigned int skyboxVAO, skyboxVBO;
     glGenVertexArrays(1, &skyboxVAO);
@@ -338,6 +343,8 @@ int main() {
     unsigned int transparentTexture = loadTexture(FileSystem::getPath("resources/textures/grass.png").c_str());
     unsigned int cubeTexture  = loadTexture(FileSystem::getPath("resources/textures/stone.jpg").c_str());
 
+    // transparent grass locations
+    // --------------------------------
     vector<glm::vec3> grass
             {
                     glm::vec3(-1.5f, 0.0f, -0.48f),
@@ -346,7 +353,6 @@ int main() {
                     glm::vec3(-0.3f, 0.0f, -2.3f),
                     glm::vec3 (0.5f, 0.0f, -0.6f)
             };
-
 
     vector<std::string> faces
             {
@@ -362,14 +368,19 @@ int main() {
     // shader configuration
     // --------------------
 
-    shader.use();
-    shader.setInt("texture1", 0);
-
     skyboxShader.use();
     skyboxShader.setInt("skybox", 0);
 
     blendingShader.use();
     blendingShader.setInt("grass", 0);
+
+    advancedShader.use();
+    advancedShader.setInt("advanced", 0);
+
+    shader.use();
+    shader.setInt("texture1", 0);
+
+    glm::vec3 AlightPos(5.0f, 10.0f, 5.0f);
 
     // load models
     // -----------
@@ -380,13 +391,11 @@ int main() {
     pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
     pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
     pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
-    pointLight.specular = glm::vec3(4.0, 4.0, 4.0);
+    pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
 
-    pointLight.constant = 1.0f;
+    pointLight.constant = 0.2f;
     pointLight.linear = 0.09f;
     pointLight.quadratic = 0.032f;
-
-
 
     // draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -407,12 +416,19 @@ int main() {
 
         // render
         // ------
+        //glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClearColor(programState->clearColor.r, programState->clearColor.g, programState->clearColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glm::mat4 view = programState->camera.GetViewMatrix();
+        glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+
+
+        // draw scene as normal
 
         // don't forget to enable shader before setting uniforms
         shader.use();
         pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
+        //pointLight.position = glm::vec3(15.0f,15.0f,15.0f);
         shader.setVec3("pointLight.position", pointLight.position);
         shader.setVec3("pointLight.ambient", pointLight.ambient);
         shader.setVec3("pointLight.diffuse", pointLight.diffuse);
@@ -423,11 +439,22 @@ int main() {
         shader.setVec3("viewPosition", programState->camera.Position);
         shader.setFloat("material.shininess", 32.0f);
         // view/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
-                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
-        glm::mat4 view = programState->camera.GetViewMatrix();
+        projection = glm::perspective(glm::radians(programState->camera.Zoom),(float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
+        view = programState->camera.GetViewMatrix();
         shader.setMat4("projection", projection);
         shader.setMat4("view", view);
+
+        advancedShader.use();
+        glm::mat4 Aprojection = glm::perspective(glm::radians(programState->camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 Aview = programState->camera.GetViewMatrix();
+        advancedShader.setMat4("projection", Aprojection);
+        advancedShader.setMat4("view", Aview);
+        // set light uniforms
+        advancedShader.setVec3("viewPos", programState->camera.Position);
+        advancedShader.setVec3("lightPos", AlightPos);
+        advancedShader.setInt("blinn", blinn);
+
+        std::cout << (blinn ? "Blinn-Phong" : "Phong") << std::endl;
 
         blendingShader.use();
         glm::mat4 Bprojection = glm::perspective(glm::radians(programState->camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
@@ -436,18 +463,18 @@ int main() {
         blendingShader.setMat4("projection", Bprojection);
         blendingShader.setMat4("view", Bview);
 
+
         // render the loaded model
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model,
-                               programState->backpackPosition); // translate it down so it's at the center of the scene
+                               programState->treePosition); // translate it down so it's at the center of the scene
         model = glm::translate(model, glm::vec3(0.0,-0.5,0.0));
-        model = glm::scale(model, glm::vec3(programState->backpackScale));    // it's a bit too big for our scene, so scale it down
+        model = glm::scale(model, glm::vec3(programState->treeScale));    // it's a bit too big for our scene, so scale it down
         shader.setMat4("model", model);
         ourModel.Draw(shader);
 
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
-
 
         // cubes
         glEnable(GL_CULL_FACE);
@@ -493,6 +520,7 @@ int main() {
         glBindVertexArray(0);
         glDepthFunc(GL_LESS); // set depth function back to default
 
+
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -504,16 +532,16 @@ int main() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
 
-    glDeleteVertexArrays(1, &cubeVAO);
-    glDeleteBuffers(1, &cubeVBO);
     glDeleteVertexArrays(1, &planeVAO);
     glDeleteBuffers(1, &planeVBO);
+    glDeleteVertexArrays(1, &cubeVAO);
+    glDeleteBuffers(1, &cubeVBO);
     glDeleteVertexArrays(1, &skyboxVAO);
     glDeleteBuffers(1, &skyboxVAO);
+
     glfwTerminate();
     return 0;
 }
@@ -532,6 +560,16 @@ void processInput(GLFWwindow *window) {
         programState->camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(RIGHT, deltaTime);
+
+    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS && !blinnKeyPressed)
+    {
+        blinn = !blinn;
+        blinnKeyPressed = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_RELEASE)
+    {
+        blinnKeyPressed = false;
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -578,9 +616,9 @@ void DrawImGui(ProgramState *programState) {
         ImGui::Begin("Hello window");
         ImGui::Text("Hello text");
         ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
-        ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-        ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
-        ImGui::DragFloat("Backpack scale", &programState->backpackScale, 0.05, 0.1, 4.0);
+        ImGui::ColorEdit3("Tree color", (float *) &programState->clearColor);
+        ImGui::DragFloat3("Tree position", (float*)&programState->treePosition);
+        ImGui::DragFloat("Tree scale", &programState->treeScale, 0.05, 0.1, 4.0);
 
         ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
         ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
@@ -612,36 +650,6 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
     }
-}
-
-unsigned int loadCubemap(vector<std::string> faces)
-{
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
-
-    int width, height, nrChannels;
-    for (unsigned int i = 0; i < faces.size(); i++)
-    {
-        unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
-        if (data)
-        {
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-            stbi_image_free(data);
-        }
-        else
-        {
-            std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
-            stbi_image_free(data);
-        }
-    }
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-    return textureID;
 }
 
 unsigned int loadTexture(char const * path)
@@ -677,6 +685,36 @@ unsigned int loadTexture(char const * path)
         std::cout << "Texture failed to load at path: " << path << std::endl;
         stbi_image_free(data);
     }
+
+    return textureID;
+}
+
+unsigned int loadCubemap(vector<std::string> faces)
+{
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+    int width, height, nrChannels;
+    for (unsigned int i = 0; i < faces.size(); i++)
+    {
+        unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+        if (data)
+        {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            stbi_image_free(data);
+        }
+        else
+        {
+            std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
+            stbi_image_free(data);
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     return textureID;
 }
